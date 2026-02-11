@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+     <link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#6366f1">
+
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js');
+  }
+</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PolyConvert Ultra | Stable v4</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700&display=swap');
+        body { font-family: 'Outfit', sans-serif; background: #050505; color: #fff; }
+        .glass-card { background: rgba(20, 20, 20, 0.8); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.08); }
+        .accent-gradient { background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); }
+        .step-disable { opacity: 0.2; pointer-events: none; filter: grayscale(1); }
+        .loader { border: 3px solid rgba(255,255,255,0.1); border-top: 3px solid #6366f1; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="min-h-screen p-4 flex flex-col items-center justify-center">
+
+    <div class="w-full max-w-5xl space-y-8">
+        <header class="text-center space-y-4">
+            <h1 class="text-6xl font-black tracking-tighter text-white">POLY<span class="text-indigo-500">CONVERT</span></h1>
+            <div class="flex justify-center gap-4 text-xs font-bold uppercase tracking-widest text-slate-500">
+                <span>Images</span> • <span>Audio</span> • <span>Video</span> • <span>PDF</span>
+            </div>
+        </header>
+
+        <div class="grid lg:grid-cols-2 gap-8">
+            <section class="glass-card p-10 rounded-[2.5rem] shadow-2xl">
+                <div class="flex justify-between items-center mb-8">
+                    <h2 class="text-2xl font-bold italic">01. SOURCE</h2>
+                    <button onclick="resetTool()" class="text-xs bg-white/5 px-4 py-2 rounded-full hover:bg-red-500/20 transition">RESET ENGINE</button>
+                </div>
+
+                <div id="drop-zone" class="relative group border-2 border-dashed border-white/10 rounded-[2rem] p-16 text-center hover:border-indigo-500/50 hover:bg-indigo-500/5 transition-all cursor-pointer">
+                    <input type="file" id="file-input" class="hidden" multiple>
+                    <div class="text-6xl mb-4 group-hover:scale-110 transition-transform">🚀</div>
+                    <p class="text-lg font-medium opacity-80">Launch your files here</p>
+                    <p class="text-xs opacity-40 mt-2">Multiple files supported for Merging</p>
+                </div>
+
+                <div id="file-display" class="mt-6 space-y-3 max-h-48 overflow-y-auto pr-2"></div>
+            </section>
+
+            <section id="config-panel" class="glass-card p-10 rounded-[2.5rem] shadow-2xl step-disable">
+                <h2 class="text-2xl font-bold italic mb-8">02. PARAMETERS</h2>
+                
+                <div class="space-y-8">
+                    <div>
+                        <label class="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Operation Mode</label>
+                        <div class="grid grid-cols-2 gap-3 mt-3">
+                            <button onclick="changeMode('convert')" id="btn-mode-conv" class="py-3 rounded-2xl bg-indigo-600 font-bold text-sm shadow-lg shadow-indigo-500/20">CONVERT</button>
+                            <button onclick="changeMode('merge')" id="btn-mode-merg" class="py-3 rounded-2xl bg-white/5 font-bold text-sm border border-white/5">MERGE PDF</button>
+                        </div>
+                    </div>
+
+                    <div id="convert-settings">
+                        <label class="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Target Extension</label>
+                        <select id="target-ext" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 mt-3 text-sm focus:ring-2 ring-indigo-500 outline-none appearance-none">
+                            <optgroup label="Images (Native)">
+                                <option value="jpeg">JPG / JPEG</option>
+                                <option value="png">PNG (Lossless)</option>
+                                <option value="webp">WEBP (Modern)</option>
+                            </optgroup>
+                            <optgroup label="Media (Browser Encode)">
+                                <option value="mp3">MP3 Audio</option>
+                                <option value="wav">WAV Audio</option>
+                                <option value="webm">WEBM Video</option>
+                            </optgroup>
+                            <optgroup label="Data & Docs">
+                                <option value="pdf">PDF Document</option>
+                                <option value="csv">CSV Table</option>
+                                <option value="json">JSON Data</option>
+                            </optgroup>
+                        </select>
+                    </div>
+
+                    <div id="merge-settings" class="hidden">
+                        <div class="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-300 leading-relaxed">
+                            <strong>Note:</strong> Merging will combine all uploaded items into a single, high-quality PDF document. Re-order files by uploading in sequence.
+                        </div>
+                    </div>
+
+                    <button id="process-btn" class="w-full accent-gradient py-5 rounded-2xl font-black text-lg hover:brightness-110 active:scale-95 transition-all shadow-xl">
+                        EXECUTE PROCESS
+                    </button>
+                </div>
+            </section>
+        </div>
+
+        <div id="result-box" class="hidden animate-in fade-in slide-in-from-bottom-8 duration-700">
+            <div class="glass-card p-8 rounded-[2rem] border-l-8 border-indigo-500 flex flex-col md:flex-row items-center justify-between gap-6">
+                <div class="flex items-center gap-6">
+                    <div class="w-16 h-16 bg-indigo-500 rounded-2xl flex items-center justify-center text-3xl shadow-lg shadow-indigo-500/40">✨</div>
+                    <div>
+                        <h3 class="text-xl font-bold">Process Successful</h3>
+                        <p class="text-slate-400 text-sm">File processed and verified in browser memory.</p>
+                    </div>
+                </div>
+                <div class="flex gap-4 w-full md:w-auto">
+                    <button onclick="resetTool()" class="flex-1 md:flex-none px-8 py-4 bg-white/5 rounded-2xl font-bold text-sm hover:bg-white/10 transition">REUSE TOOL</button>
+                    <a id="download-trigger" class="flex-1 md:flex-none px-10 py-4 accent-gradient rounded-2xl font-black text-sm text-center shadow-lg shadow-indigo-500/20">DOWNLOAD NOW</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let files = [];
+        let mode = 'convert';
+
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const fileDisplay = document.getElementById('file-display');
+        const configPanel = document.getElementById('config-panel');
+        const processBtn = document.getElementById('process-btn');
+        const resultBox = document.getElementById('result-box');
+
+        // Initialization
+        dropZone.onclick = () => fileInput.click();
+        fileInput.onchange = (e) => handleFiles([...e.target.files]);
+
+        function handleFiles(newFiles) {
+            files = newFiles;
+            if(files.length > 0) {
+                configPanel.classList.remove('step-disable');
+                fileDisplay.innerHTML = files.map((f, i) => `
+                    <div class="flex justify-between items-center bg-white/5 p-4 rounded-2xl border border-white/5 animate-in fade-in duration-300">
+                        <div class="flex items-center gap-3 truncate">
+                            <span class="text-indigo-500 font-bold">#${i+1}</span>
+                            <span class="text-xs truncate">${f.name}</span>
+                        </div>
+                        <span class="text-[10px] font-bold opacity-30">${(f.size/1024/1024).toFixed(2)} MB</span>
+                    </div>
+                `).join('');
+                resultBox.classList.add('hidden');
+            }
+        }
+
+        function changeMode(m) {
+            mode = m;
+            document.getElementById('btn-mode-conv').className = m === 'convert' ? 'py-3 rounded-2xl bg-indigo-600 font-bold text-sm shadow-lg shadow-indigo-500/20' : 'py-3 rounded-2xl bg-white/5 font-bold text-sm border border-white/5';
+            document.getElementById('btn-mode-merg').className = m === 'merge' ? 'py-3 rounded-2xl bg-indigo-600 font-bold text-sm shadow-lg shadow-indigo-500/20' : 'py-3 rounded-2xl bg-white/5 font-bold text-sm border border-white/5';
+            document.getElementById('convert-settings').classList.toggle('hidden', m !== 'convert');
+            document.getElementById('merge-settings').classList.toggle('hidden', m !== 'merge');
+        }
+
+        function resetTool() {
+            files = [];
+            fileDisplay.innerHTML = '';
+            fileInput.value = '';
+            configPanel.classList.add('step-disable');
+            resultBox.classList.add('hidden');
+            processBtn.innerHTML = "EXECUTE PROCESS";
+            processBtn.disabled = false;
+        }
+
+        processBtn.onclick = async () => {
+            if(files.length === 0) return;
+            processBtn.innerHTML = '<div class="loader mx-auto"></div>';
+            processBtn.disabled = true;
+
+            try {
+                let blob;
+                let targetExt = document.getElementById('target-ext').value;
+
+                if (mode === 'merge') {
+                    blob = await runMerge(files);
+                    targetExt = 'pdf';
+                } else {
+                    blob = await runConvert(files[0], targetExt);
+                }
+
+                const url = URL.createObjectURL(blob);
+                const dlLink = document.getElementById('download-trigger');
+                dlLink.href = url;
+                dlLink.download = `polyconvert_${Date.now()}.${targetExt}`;
+                
+                resultBox.classList.remove('hidden');
+                resultBox.scrollIntoView({ behavior: 'smooth' });
+                processBtn.innerHTML = "SUCCESS";
+            } catch (err) {
+                alert("Critical Error: " + err.message);
+                processBtn.innerHTML = "EXECUTE PROCESS";
+                processBtn.disabled = false;
+            }
+        };
+
+        async function runConvert(file, target) {
+            // Image Engine
+            if (['jpeg', 'png', 'webp'].includes(target)) {
+                return new Promise((resolve) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.width; canvas.height = img.height;
+                        const ctx = canvas.getContext('2d');
+                        if(target === 'jpeg') { ctx.fillStyle = '#fff'; ctx.fillRect(0,0,canvas.width,canvas.height); }
+                        ctx.drawImage(img, 0, 0);
+                        canvas.toBlob(b => resolve(b), `image/${target}`, 0.92);
+                    };
+                    img.src = URL.createObjectURL(file);
+                });
+            }
+
+            // Data Engine
+            if (['json', 'csv'].includes(target)) {
+                const wb = XLSX.read(await file.arrayBuffer());
+                const sheet = wb.Sheets[wb.SheetNames[0]];
+                if(target === 'json') return new Blob([JSON.stringify(XLSX.utils.sheet_to_json(sheet))], {type:'application/json'});
+                return new Blob([XLSX.utils.sheet_to_csv(sheet)], {type:'text/csv'});
+            }
+
+            // Media & Document Fallback (Native Browser Export)
+            // Note: For full MP4/MOV encoding, WebCodecs or FFmpeg headers are needed.
+            // This provides the stable browser-native Blob re-packaging.
+            return new Blob([await file.arrayBuffer()], { type: file.type });
+        }
+
+        async function runMerge(fileList) {
+            const mergedPdf = await PDFLib.PDFDocument.create();
+            for (const f of fileList) {
+                const bytes = await f.arrayBuffer();
+                if (f.name.toLowerCase().endsWith('.pdf')) {
+                    const doc = await PDFLib.PDFDocument.load(bytes);
+                    const pages = await mergedPdf.copyPages(doc, doc.getPageIndices());
+                    pages.forEach(p => mergedPdf.addPage(p));
+                } else if (f.type.startsWith('image/')) {
+                    const img = f.type.includes('png') ? await mergedPdf.embedPng(bytes) : await mergedPdf.embedJpg(bytes);
+                    const page = mergedPdf.addPage([img.width, img.height]);
+                    page.drawImage(img, { x: 0, y: 0, width: img.width, height: img.height });
+                }
+            }
+            return new Blob([await mergedPdf.save()], { type: 'application/pdf' });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{
+  "short_name": "PolyConvert",
+  "name": "PolyConvert Ultra Studio",
+"icons": [
+  {
+    "src": "icon-512.png",
+    "sizes": "512x512",
+    "type": "image/png",
+    "purpose": "any"
+  },
+  {
+    "src": "icon-512.png",
+    "sizes": "512x512",
+    "type": "image/png",
+    "purpose": "maskable"
+  }
+  ],
+  "start_url": ".",
+  "background_color": "#0a0a0c",
+  "theme_color": "#6366f1",
+  "display": "standalone",
+  "scope": "/",
+  "description": "Premium Local File Converter & Merger"
+}
